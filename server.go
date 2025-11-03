@@ -16,7 +16,10 @@ const (
 )
 
 func createMCPServer() *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: serverName, Version: serverVersion})
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    serverName,
+		Version: serverVersion},
+		nil)
 	log.Printf("Initializing MCP server: %s v%s", serverName, serverVersion)
 
 	return server
