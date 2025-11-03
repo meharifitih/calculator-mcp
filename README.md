@@ -507,6 +507,7 @@ This project includes GitHub Actions workflows for CI/CD:
    - Builds server and client
    - Runs linting with golangci-lint
    - Builds for multiple operating systems (Linux, macOS, Windows)
+   - **Deploys README to GitHub Pages** (on main/master branch)
 
 2. **Integration Test Workflow** (`.github/workflows/test-client.yml`)
    - Tests client-server integration
@@ -525,9 +526,24 @@ This project includes GitHub Actions workflows for CI/CD:
 2. Copy the workflow files from this project
 3. Push to GitHub - workflows will run automatically
 
+#### Setting up GitHub Pages
+
+To enable GitHub Pages deployment (which creates the "Deployments" section in your repo):
+
+1. Go to your GitHub repository
+2. Click **Settings** → **Pages**
+3. Under **Source**, select **"GitHub Actions"**
+4. Click **Save**
+5. Push to the `main` or `master` branch - the workflow will automatically:
+   - Convert README.md to HTML
+   - Deploy to GitHub Pages
+   - Create a deployment entry (visible in the Deployments section)
+
+Your site will be available at: `https://yourusername.github.io/calculator-mcp/` (or your repository name)
+
 #### Workflow Triggers
 
-- **Push to main/master/develop**: Runs CI and integration tests
+- **Push to main/master/develop**: Runs CI, integration tests, and deploys to GitHub Pages
 - **Pull requests**: Runs CI and integration tests
 - **Version tags** (v*): Creates a release with binaries
 - **Manual trigger**: Integration tests can be run manually from GitHub Actions tab
