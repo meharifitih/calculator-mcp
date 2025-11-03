@@ -94,6 +94,15 @@ func createMCPServer() *mcp.Server {
 		Description: "Generate a random number between 1 and 100",
 	}, handleGenerateRandomNumber)
 
+	log.Println("Loaded tools: calculate, random_number")
+
+	// Math constants resource
+	server.AddResource(&mcp.Resource{
+		URI:         "math://constants",
+		Name:        "math-constants",
+		Description: "Mathematical constants",
+	}, handleMathConstants)
+
 	return server
 }
 
@@ -226,4 +235,59 @@ func clamp(val, min, max int) int {
 		return max
 	}
 	return val
+}
+
+func handleMathConstants(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	constants := map[string]float64{
+		"pi":           3.141592653589793,
+		"e":            2.718281828459045,
+		"golden_ratio": 1.618033988749895,
+		"sqrt2":        1.4142135623730951,
+		"sqrt3":        1.7320508075688772,
+		"ln2":          0.6931471805599453,
+		"ln10":         2.302585092994046,
+		"euler":        0.5772156649015329,
+	}
+
+	uri := req.Params.URI
+	constantName := ""
+	if uri == "math://constants" {
+		// Return all constants as JSON
+		jsonData := fmt.Sprintf(`{
+  "pi": %f,
+  "e": %f,
+  "golden_ratio": %f,
+  "sqrt2": %f,
+  "sqrt3": %f,
+  "ln2": %f,
+  "ln10": %f,
+  "euler": %f
+}`, constants["pi"], constants["e"], constants["golden_ratio"],
+			constants["sqrt2"], constants["sqrt3"], constants["ln2"],
+			constants["ln10"], constants["euler"])
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				{URI: uri, Text: jsonData, MIMEType: "application/json"},
+			},
+		}, nil
+	}
+
+	// Try to extract constant name from URI like "math://constants/pi"
+	if len(uri) > len("math://constants/") && uri[:len("math://constants/")] == "math://constants/" {
+		constantName = uri[len("math://constants/"):]
+	}
+
+	if constantName != "" {
+		value, ok := constants[constantName]
+		if !ok {
+			return nil, mcp.ResourceNotFoundError(uri)
+		}
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				{URI: uri, Text: fmt.Sprintf("%f", value), MIMEType: "text/plain"},
+			},
+		}, nil
+	}
+
+	return nil, mcp.ResourceNotFoundError(uri)
 }
