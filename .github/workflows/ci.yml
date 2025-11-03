@@ -109,3 +109,43 @@ jobs:
           client/client.exe
         if-no-files-found: ignore
 
+  pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Setup Node.js for markdown conversion
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install markdown converter
+      run: npm install -g marked
+
+    - name: Generate HTML from README
+      run: |
+        mkdir -p _site
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Calculator MCP Server</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css"><style>.markdown-body{box-sizing:border-box;min-width:200px;max-width:980px;margin:0 auto;padding:45px}@media (max-width:767px){.markdown-body{padding:15px}}</style></head><body><article class="markdown-body">' > _site/index.html
+        marked README.md >> _site/index.html
+        echo '</article></body></html>' >> _site/index.html
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: _site
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
