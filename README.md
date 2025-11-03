@@ -497,6 +497,41 @@ TRANSPORT=stdio go run .
 
 This will test all tools, resources, and prompts.
 
+### GitHub Actions
+
+This project includes GitHub Actions workflows for CI/CD:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`)
+   - Runs on push and pull requests
+   - Tests the code
+   - Builds server and client
+   - Runs linting with golangci-lint
+   - Builds for multiple operating systems (Linux, macOS, Windows)
+
+2. **Integration Test Workflow** (`.github/workflows/test-client.yml`)
+   - Tests client-server integration
+   - Tests both stdio and HTTP modes
+   - Can be triggered manually via `workflow_dispatch`
+
+3. **Release Workflow** (`.github/workflows/release.yml`)
+   - Triggers on version tags (e.g., `v1.0.0`)
+   - Builds binaries for multiple platforms
+   - Creates GitHub releases with artifacts
+   - Generates checksums for all binaries
+
+#### Setting up GitHub Actions
+
+1. Create `.github/workflows/` directory in your repository
+2. Copy the workflow files from this project
+3. Push to GitHub - workflows will run automatically
+
+#### Workflow Triggers
+
+- **Push to main/master/develop**: Runs CI and integration tests
+- **Pull requests**: Runs CI and integration tests
+- **Version tags** (v*): Creates a release with binaries
+- **Manual trigger**: Integration tests can be run manually from GitHub Actions tab
+
 ### Adding New Features
 
 1. **New Tool**: Add handler function and register in `createMCPServer()`

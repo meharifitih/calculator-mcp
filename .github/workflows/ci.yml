@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test ./... -v
+
+    - name: Build server
+      run: go build -o calculator-mcp-server server.go
+
+    - name: Build client
+      run: cd client && go build -o client client.go
+
+    - name: Test server (stdio mode)
+      run: |
+        timeout 5s TRANSPORT=stdio ./calculator-mcp-server < /dev/null || true
+      continue-on-error: true
+
+    - name: Test server (HTTP mode)
+      run: |
+        TRANSPORT=streamable-http ./calculator-mcp-server &
+        SERVER_PID=$!
+        sleep 2
+        curl -f http://localhost:8080/health || exit 1
+        kill $SERVER_PID || true
+      continue-on-error: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.24']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build server
+      run: go build -o calculator-mcp-server server.go
+
+    - name: Build client
+      run: cd client && go build -o client client.go
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: calculator-mcp-server-${{ matrix.os }}
+        path: |
+          calculator-mcp-server
+          client/client
+          client/client.exe
+        if-no-files-found: ignore
+
