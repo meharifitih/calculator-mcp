@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -102,6 +103,58 @@ func createMCPServer() *mcp.Server {
 		Name:        "math-constants",
 		Description: "Mathematical constants",
 	}, handleMathConstants)
+
+	log.Println("Loaded resources: math-constants")
+
+	// Calculation explanation prompt
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "calculation-explanation",
+		Description: "Explain how a mathematical calculation works",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "operation",
+				Description: "The mathematical operation: add, subtract, multiply, or divide",
+				Required:    true,
+			},
+			{
+				Name:        "num1",
+				Description: "The first number",
+				Required:    true,
+			},
+			{
+				Name:        "num2",
+				Description: "The second number",
+				Required:    true,
+			},
+		},
+	}, handleCalculationExplanation)
+
+	log.Println("Loaded prompts: calculation-explanation")
+
+	// Random number generation prompt
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "generate-random-number-prompt",
+		Description: "Generate and explain a random number",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "min",
+				Description: "Minimum value (default: 1)",
+				Required:    false,
+			},
+			{
+				Name:        "max",
+				Description: "Maximum value (default: 100)",
+				Required:    false,
+			},
+			{
+				Name:        "distribution",
+				Description: "Probability distribution: 'uniform' (default), 'normal' (Gaussian/bell curve), or 'exponential' (exponential decay)",
+				Required:    false,
+			},
+		},
+	}, handleGenerateRandomNumberPrompt)
+
+	log.Println("Loaded prompts: calculation-explanation, generate-random-number-prompt")
 
 	return server
 }
@@ -290,4 +343,179 @@ func handleMathConstants(ctx context.Context, req *mcp.ReadResourceRequest) (*mc
 	}
 
 	return nil, mcp.ResourceNotFoundError(uri)
+}
+
+func handleCalculationExplanation(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	args := req.Params.Arguments
+	operation := args["operation"]
+	num1Str := args["num1"]
+	num2Str := args["num2"]
+
+	if operation == "" || num1Str == "" || num2Str == "" {
+		return &mcp.GetPromptResult{
+			Description: "Calculation explanation prompt",
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: "Please provide operation, num1, and num2 arguments"},
+				},
+			},
+		}, nil
+	}
+
+	var num1, num2 float64
+	var err error
+	if num1, err = parseFloat(num1Str); err != nil {
+		return &mcp.GetPromptResult{
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: fmt.Sprintf("Invalid number for num1: %s", num1Str)},
+				},
+			},
+		}, nil
+	}
+	if num2, err = parseFloat(num2Str); err != nil {
+		return &mcp.GetPromptResult{
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: fmt.Sprintf("Invalid number for num2: %s", num2Str)},
+				},
+			},
+		}, nil
+	}
+
+	var result float64
+	var explanation string
+	switch operation {
+	case "add":
+		result = num1 + num2
+		explanation = fmt.Sprintf("To add %g and %g, you simply combine the two numbers: %g + %g = %g", num1, num2, num1, num2, result)
+	case "subtract":
+		result = num1 - num2
+		explanation = fmt.Sprintf("To subtract %g from %g, you take away the second number from the first: %g - %g = %g", num2, num1, num1, num2, result)
+	case "multiply":
+		result = num1 * num2
+		explanation = fmt.Sprintf("To multiply %g by %g, you calculate the product: %g × %g = %g", num1, num2, num1, num2, result)
+	case "divide":
+		if num2 == 0 {
+			return &mcp.GetPromptResult{
+				Messages: []*mcp.PromptMessage{
+					{
+						Role:    "user",
+						Content: &mcp.TextContent{Text: "Cannot divide by zero. Division by zero is undefined in mathematics."},
+					},
+				},
+			}, nil
+		}
+		result = num1 / num2
+		explanation = fmt.Sprintf("To divide %g by %g, you calculate the quotient: %g ÷ %g = %g", num1, num2, num1, num2, result)
+	default:
+		return &mcp.GetPromptResult{
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: fmt.Sprintf("Invalid operation: %s. Valid operations are: add, subtract, multiply, divide", operation)},
+				},
+			},
+		}, nil
+	}
+
+	message := fmt.Sprintf("%s\n\nResult: %g", explanation, result)
+
+	return &mcp.GetPromptResult{
+		Description: "Calculation explanation",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: message},
+			},
+		},
+	}, nil
+}
+
+func parseFloat(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(s, "%f", &f)
+	return f, err
+}
+
+func handleGenerateRandomNumberPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	args := req.Params.Arguments
+
+	// Parse arguments with defaults
+	min := 1
+	max := 100
+	distribution := "uniform"
+
+	if minStr := args["min"]; minStr != "" {
+		if parsed, err := strconv.Atoi(minStr); err == nil {
+			min = parsed
+		}
+	}
+	if maxStr := args["max"]; maxStr != "" {
+		if parsed, err := strconv.Atoi(maxStr); err == nil {
+			max = parsed
+		}
+	}
+	if distStr := args["distribution"]; distStr != "" {
+		distribution = distStr
+	}
+
+	// Validate
+	if min >= max {
+		return &mcp.GetPromptResult{
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: fmt.Sprintf("Invalid range: min (%d) must be less than max (%d)", min, max)},
+				},
+			},
+		}, nil
+	}
+
+	if distribution != "" && distribution != "uniform" && distribution != "normal" && distribution != "exponential" {
+		return &mcp.GetPromptResult{
+			Messages: []*mcp.PromptMessage{
+				{
+					Role:    "user",
+					Content: &mcp.TextContent{Text: fmt.Sprintf("Invalid distribution: %s. Valid distributions are: uniform, normal, exponential", distribution)},
+				},
+			},
+		}, nil
+	}
+
+	// Generate random number
+	var number int
+	var explanation string
+
+	switch distribution {
+	case "uniform", "":
+		number = rand.Intn(max-min+1) + min
+		explanation = fmt.Sprintf("Using uniform distribution, each number between %d and %d has an equal probability of being selected.", min, max)
+	case "normal":
+		mean := float64(max+min) / 2.0
+		stdDev := float64(max-min) / 6.0
+		val := rand.NormFloat64()*stdDev + mean
+		number = clamp(int(val), min, max)
+		explanation = fmt.Sprintf("Using normal (Gaussian) distribution with mean %.2f and standard deviation %.2f. Values near the center (%d-%d) are more likely.", mean, stdDev, (min+max)/2-5, (min+max)/2+5)
+	case "exponential":
+		lambda := 1.0 / float64(max-min)
+		val := rand.ExpFloat64() / lambda
+		number = clamp(int(val)+min, min, max)
+		explanation = fmt.Sprintf("Using exponential distribution. Lower values in the range (%d-%d) are more likely than higher values.", min, (min+max)/2)
+	}
+
+	message := fmt.Sprintf("%s\n\nGenerated random number: %d\nRange: [%d, %d]\nDistribution: %s", explanation, number, min, max, distribution)
+
+	return &mcp.GetPromptResult{
+		Description: "Random number generation",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: message},
+			},
+		},
+	}, nil
 }
